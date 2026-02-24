@@ -80,3 +80,5 @@ INICIO: MOVE.L #BUS_ERROR,8                             * Bus error handler
                 NOP
     PRIV_VIOLT: BREAK                                   * Privilege violation handler
     NOP
+
+INCLUDE bib_aux.s
