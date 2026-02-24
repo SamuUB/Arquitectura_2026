@@ -1,0 +1,28 @@
+00000000                                     1  **************************************************************************
+00000000                                     2  *   PROYECTO: Proyecto E/S por interrupciones
+00000000                                     3  *   ARCHIVO: es_int.s
+00000000                                     4  *   FECHA CREACIÓN: 24/02/2026
+00000000                                     5  *   AUTORES: Samuel Muñoz-Guerra Gómez y Zhou Chengjian 
+00000000                                     6  *   CONTACTO: s.munoz-guerra@alumnos.upm.es y chengjian.zhou@alumnos.upm.es
+00000000                                     7  *
+00000000                                     8  *  OBJETIVO DEL ARCHIVO:
+00000000                                     9  *    Breve descripción de la función de este archivo
+00000000                                    10  *
+00000000                                    11  *  HISTORIAL DE CAMBIOS:
+00000000                                    12  *    DD/MM/AAAA - Autor - Descripción del cambio
+00000000                                    13  *    DD/MM/AAAA - Autor - Descripción del cambio
+00000000                                    14  *
+00000000                                    15  *  COMENTARIOS INTERNOS:
+00000000                                    16  *    - Aquí podemos dejar notas entre compañeros
+00000000                                    17  *
+00000000                                    18  *  SESIONES DE TRABAJO:
+00000000                                    19  *    Nombre Inicio: DD/MM/AAAA HH:MM   Fin:    DD/MM/AAAA HH:MM
+00000000                                    20  *    
+00000000                                    21  *
+00000000                                    22  *  NOTAS DE DEPURACIÓN:
+00000000                                    23  *    - Bug 1: Descripción
+00000000                                    24  *    - Bug 2: Descripción
+00000000                                    25  **************************************************************************
+
+No errors detected
+No warnings generated
