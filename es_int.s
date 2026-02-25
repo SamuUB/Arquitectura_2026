@@ -92,7 +92,30 @@ INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
         *********************************************************************
 
         ********************************** IVR ******************************
-        MOVE.B #$40,IVR
+        MOVE.B #$40,IVR                                                     *
+        *********************************************************************
+
+        ********************************** IMR ******************************
+        * Bit: 7 6 5  4  | 3 2 1  0                                         *
+        *      ─ ─ ── ── | ─ ─ ── ──                                        *
+        *          RB TB       RA TA                                        *
+        * RB/RA = mascara de recepción del canal x                          *
+        * TB/TA = mascara de transmisión del canal x                        *
+        MOVE.B #%00100010,IMR                                               *
+        * %00100010                                                         *
+        * bit 5: 1 -> RxRDYB habilitada                                     *
+        * bit 4: 0 -> TxRDYB inhabilitada                                   *
+        * bit 1: 1 -> RxRDYA habilitada                                     *
+        * bit 0: 0 -> TxRDYA inhabilitada                                   *
+        *********************************************************************
+
+        ********************************** RTI ******************************
+        * Actualiza la posición de RTI a la de IVR*4                        *
+        LEA RTI, A0                                                         *
+        LOAD IVR, A5                                                        *
+        MULU #$4, A5                                                        *
+        MOVE.L A0, A5                                                       *
+        *********************************************************************
 
 ***************************************** PROGRAMA PRINCIPAL *******************************************
 BUFFER: DS.B 2100                                       * Buffer para lectura y escritura de caracteres
