@@ -11,14 +11,15 @@
 *  HISTORIAL DE CAMBIOS:
 *    DD/MM - Autor - Descripción del cambio
 *    24/02 - Samuel - Inicio del archivo y organización general del proyecto
+*    25/02 - Samuel - Desarrollo de la subrutina INIT
 *
 *  COMENTARIOS INTERNOS:
-*    - Aquí podemos dejar notas entre compañeros
+*    - NO ESTOY MUY SEGURO DE LO DEL RTI, COMPRUEBALO PQ NS
 *
 *  SESIONES DE TRABAJO:
 *    Nombre {Inicio: DD/MM/AAAA HH:MM   Fin:    DD/MM/AAAA HH:MM}
 *    Samuel {24/02 15:00, 24/02 16:30}
-*    Samuel {25/02 15:00, 25/02 17:00}
+*    Samuel {25/02 15:00, 25/02 18:00}
 *
 *  NOTAS DE DEPURACIÓN:
 *    - Bug 1: Descripción
