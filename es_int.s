@@ -18,11 +18,81 @@
 *  SESIONES DE TRABAJO:
 *    Nombre {Inicio: DD/MM/AAAA HH:MM   Fin:    DD/MM/AAAA HH:MM}
 *    Samuel {24/02 15:00, 24/02 16:30}
+*    Samuel {25/02 15:00, 25/02 17:00}
 *
 *  NOTAS DE DEPURACIÓN:
 *    - Bug 1: Descripción
 *    - Bug 2: Descripción
 **************************************************************************
+
+***************************************** INIT **************************************************
+* Las lineas A y B deben quedar preparadas para la recepcion y transmision de caracteres        *
+* mediante E/S por interrupciones. Al finalizar la ejecucion de la instruccion RTS, el puntero  *
+* de pila (SP) debe apuntar a la misma direccion a la que apuntaba antes de ejecutar la         *
+* instruccion BSR. Debido a la particular configuracion del emulador, esta subrutina no puede   *
+* devolver ningun error y, por tanto, no se devuelve ningun valor de retorno. Se supondra que   *
+* el programa que invoca a esta subrutina no deja ningun valor representativo en los registros  *
+* del computador salvo el puntero de marco de pila (A6)                                         *
+*************************************************************************************************
+INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
+        **************************** MR1A Y MR1B ****************************
+        *Bit: 7 6 5 4 3 2 1 0                                               *
+        *     ─ ─ ─ ─ ─ ─ ─ ─                                               *
+        *     P P P M C C C C                                               *
+        * P = paridad                                                       *
+        * M = modo (asíncrono)                                              *
+        * C = longitud de caracter                                          *
+        MOVE.B #$13,MR1A                                                    *
+        MOVE.B #$13,MR1B                                                    *
+        * $13 = 0001 0011                                                   *
+        * bits 3-0: 0011 (8) -> Tamaño de caracter máximo = 8 bits          *
+        * bit  4:   1        -> Modo asíncrono                              *
+        * bits 7-5: 000  (0) -> Paridad desactivada                         *
+        *********************************************************************
+
+        **************************** MR2A Y MR2B ****************************
+        * Bit: 7 6 5 4 3 2 1 0                                              *
+        *      ─ ─ ─ ─ ─ ─ ─ ─                                              *
+        *      M M M E S S S S                                              *
+        * M = modo de operación                                             *
+        * E = eco                                                           *
+        * S = bits de parada (STOP)                                         *
+        MOVE.B #$07, MR2A                                                   *
+        MOVE.B #$07, MR2B                                                   *
+        * $07 = 0000 0111                                                   *
+        * bits 3-0: 0111 -> 1 bit de parada                                 *
+        * bit  4  : 0    -> Eco desactivado                                 *
+        * bits 7-5: 000  -> Modo normal                                     *
+        *********************************************************************
+
+        **************************** CSRA Y CSRB ****************************
+        * Bit: 7 6 5 4 | 3 2 1 0                                            *
+        *      ─ ─ ─ ─ | ─ ─ ─ ─                                            *
+        *     RX CLOCK | TX CLOCK                                           *
+        MOVE.B #$CC,CSRA                                                    *
+        MOVE.B #$CC,CSRB                                                    *
+        * $CC = 1100 1100                                                   *
+        * bits 7-4: 1100 -> RX = 38400 bps                                  *
+        * bits 3-0: 1100 -> TX = 38400 bps                                  *
+        *********************************************************************
+
+        **************************** CRA Y CRB ******************************
+        * Bit: 7 6 5 4 | 3 2 1 0                                            *
+        *      ─ ─ ─ ─ | ─ ─ ─ ─                                            *
+        *        M M M   T T R R                                            *
+        * M = miscelaneos                                                   *
+        * T = transmisión                                                   *
+        * R = recepción                                                     *
+        MOVE.B #%00000101,CRA                                               *
+        MOVE.B #%00000101,CRB                                               *
+        * %00000101                                                         *
+        * bits 6-4: 000 -> sin efecto                                       *
+        * bits 3-2: 01  -> Transmisión habilitada                           *
+        * bits 1-0: 01  -> Recepción habilitada                             *
+        *********************************************************************
+
+        ********************************** IVR ******************************
+        MOVE.B #$40,IVR
 
 ***************************************** PROGRAMA PRINCIPAL *******************************************
 BUFFER: DS.B 2100                                       * Buffer para lectura y escritura de caracteres
@@ -35,13 +105,13 @@ TAMBS: EQU 30                                           * Tama~no de bloque para
 TAMBP: EQU 7                                            * Tama~no de bloque para PRINT
                                                         * Manejadores de excepciones
 INICIO: MOVE.L #BUS_ERROR,8                             * Bus error handler
-    MOVE.L #ADDRESS_ER,12                               * Address error handler
-    MOVE.L #ILLEGAL_IN,16                               * Illegal instruction handler
-    MOVE.L #PRIV_VIOLT,32                               * Privilege violation handler
-    MOVE.L #ILLEGAL_IN,40                               * Illegal instruction handler
-    MOVE.L #ILLEGAL_IN,44                               * Illegal instruction handler
-    BSR INIT
-    MOVE.W #$2000,SR                                    * Permite interrupciones
+        MOVE.L #ADDRESS_ER,12                               * Address error handler
+        MOVE.L #ILLEGAL_IN,16                               * Illegal instruction handler
+        MOVE.L #PRIV_VIOLT,32                               * Privilege violation handler
+        MOVE.L #ILLEGAL_IN,40                               * Illegal instruction handler
+        MOVE.L #ILLEGAL_IN,44                               * Illegal instruction handler
+        BSR INIT
+        MOVE.W #$2000,SR                                    * Permite interrupciones
     BUCPR:      MOVE.W #TAMBS,PARTAM                    * Inicializa par´ametro de tama~no
                 MOVE.L #BUFFER,PARDIR                   * Par´ametro BUFFER = comienzo del buffer
     OTRAL:      MOVE.W PARTAM,-(A7)                     * Tama~no de bloque
