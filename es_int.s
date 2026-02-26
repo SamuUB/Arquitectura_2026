@@ -28,6 +28,13 @@
 *    - Bug 2: Descripción
 **************************************************************************
 
+* Inicializacion del SP y del PC
+
+        ORG     $0
+        DC.L    $8000           * Dirección de la pila (SP)
+        DC.L    PPAL            * Dirección del programa (PC)
+
+        ORG     $400
 ***************************************** EQUIVALENCIAS **************************************************
 MR1A    EQU     $effc01         * Modo A 
 MR2A    EQU     $effc01         * Modo A, registro 2 
@@ -145,9 +152,90 @@ INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
         MOVE.L  #RTI, $100                                                  *
         *********************************************************************
 
+        ********************************** INI_BUFFS ************************
+        * Llama a INI_BUFFS para inicialización de los bufers de entrada    *                        *
+        BSR INI_BUFS                                                        *
+        *********************************************************************
+        
+
         MOVEM.L (A7)+, D0-D1/A0-A1                      *Restaurar registros de la pila
         RTS                                             *Salir de la subrutina
 **************************************** FIN INIT ****************************************************
+
+
+***************************************** RTI **************************************************
+* La invocacion de la rutina de tratamiento de interrupcion es el resultado de la ejecucion
+* de la secuencia de reconocimiento de interrupciones expuesta en la pagina 8. Entre otras
+* acciones esta subrutina debe realizar las siguientes acciones:
+* 1. Identificacion de la fuente de interrupcion.
+* 2. Tratamiento de la interrupcion
+* 3. Situaciones “especiales”
+
+RTI:    MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7) TEMPORAL, ACTUALIZAR DEPENDIENDO DE LOS REGISTROS USADOS
+        * Leer registro de estado de interrupciones
+        MOVE.B  ISR,D0                                  * Leer ISR (registro de estado de interrupción)
+        ******************************* Recepción canal A *******************************
+        BTST    #0,D0                                   * RxRDYA?
+        BEQ     RXB_CHECK                               * No RxRDYA -> RXB_CHECK
+        MOVE.B  RBA,D1                                  * Leer el carácter recibido
+        MOVE.L  D1,-(A7)                                * Pasar caracter por pila
+        JSR     ESCCAR                                  * Añadir al buffer interno canal A
+        ADDQ.L  #4,A7                                   * Recuperar puntero de pila
+        CMP.L   #$FFFFFFFF,D0                           * SI error -> D0 = 0xFFFF
+        BEQ     RXA_DROP                                * Si error ->
+        BRA     RXB_CHECK
+
+RXA_DROP:
+        ; Buffer lleno, carácter descartado
+        BRA     RXB_CHECK
+
+        ;==================== RECEPCIÓN CANAL B ====================
+RXB_CHECK:
+        BTST    #4,D0                 ; RxRDYB?
+        BEQ     TXA_CHECK
+        MOVE.B  RBB,D1
+        MOVE.L  D1,-(A7)
+        JSR     ESCCAR                ; Buffer interno canal B
+        ADDQ.L  #4,A7
+        CMP.L   #$FFFFFFFF,D0
+        BEQ     RXB_DROP
+        BRA     TXA_CHECK
+
+RXB_DROP:
+        ; Buffer lleno, carácter descartado
+        BRA     TXA_CHECK
+
+        ;==================== TRANSMISIÓN CANAL A ==================
+TXA_CHECK:
+        BTST    #1,D0                 ; TxRDYA?
+        BEQ     TXB_CHECK
+        JSR     LEECAR                ; Leer primer carácter del buffer A
+        CMP.L   #$FFFFFFFF,D0
+        BEQ     TXA_DISABLE
+        MOVE.B  D0,TBA                ; Transmitir carácter
+        BRA     TXB_CHECK
+
+TXA_DISABLE:
+        BCLR    #0,IMR                ; Deshabilitar TxRDYA
+        BRA     TXB_CHECK
+
+        ;==================== TRANSMISIÓN CANAL B ==================
+TXB_CHECK:
+        BTST    #5,D0                 ; TxRDYB?
+        BEQ     RTI_END
+        JSR     LEECAR                ; Leer primer carácter del buffer B
+        CMP.L   #$FFFFFFFF,D0
+        BEQ     TXB_DISABLE
+        MOVE.B  D0,TBB                ; Transmitir carácter
+        BRA     RTI_END
+
+TXB_DISABLE:
+        BCLR    #4,IMR                ; Deshabilitar TxRDYB
+
+;==================== FIN DE RTI ===========================
+RTI_END:
+        MOVEM.L (A7)+,D0-D2/A0-A1     ; Restaurar registros
+        RTE                            ; Retorno de la interrupción
 
 ***************************************** PROGRAMA PRINCIPAL *******************************************
 BUFFER: DS.B 2100                                       * Buffer para lectura y escritura de caracteres
