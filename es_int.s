@@ -12,19 +12,48 @@
 *    DD/MM - Autor - Descripción del cambio
 *    24/02 - Samuel - Inicio del archivo y organización general del proyecto
 *    25/02 - Samuel - Desarrollo de la subrutina INIT
+*    26/02 - Samuel - Terminado INIT
 *
 *  COMENTARIOS INTERNOS:
 *    - NO ESTOY MUY SEGURO DE LO DEL RTI, COMPRUEBALO PQ NS
 *
 *  SESIONES DE TRABAJO:
-*    Nombre {Inicio: DD/MM/AAAA HH:MM   Fin:    DD/MM/AAAA HH:MM}
+*    Nombre {Inicio: DD/MM/AAAA HH:MM  , Fin:    DD/MM/AAAA HH:MM}
 *    Samuel {24/02 15:00, 24/02 16:30}
 *    Samuel {25/02 15:00, 25/02 18:00}
+*    Samuel {26/02 17:00, 26/02 19:00}
 *
 *  NOTAS DE DEPURACIÓN:
 *    - Bug 1: Descripción
 *    - Bug 2: Descripción
 **************************************************************************
+
+***************************************** EQUIVALENCIAS **************************************************
+MR1A    EQU     $effc01         * Modo A 
+MR2A    EQU     $effc01         * Modo A, registro 2 
+SRA     EQU     $effc03         * Estado A (lectura)
+CSRA    EQU     $effc03         * Selección de reloj A (escritura)
+CRA     EQU     $effc05         * Control A (escritura)
+TBA     EQU     $effc07         * Buffer de transmisión A (escritura)
+RBA     EQU     $effc07         * Buffer de recepción A (lectura)
+
+ACR     EQU     $effc09         * Control auxiliar
+IMR     EQU     $effc0B         * Máscara de interrupción (escritura)
+ISR     EQU     $effc0B         * Estado de interrupción (lectura)
+
+MR1B    EQU     $effc11         * Modo B (escritura)
+MR2B    EQU     $effc11         * de modo B, registro 2 (escritura)
+SRB     EQU     $effc13         * Estado B (lectura)
+CSRB    EQU     $effc13         * Selección de reloj B (escritura)
+CRB     EQU     $effc15         * Control B (escritura)
+TBB     EQU     $effc17         * Buffer de transmisión B (escritura)
+RBB     EQU     $effc17         * Buffer de recepción B (lectura)
+
+IVR     EQU     $effc19         * Vector de interrupción
+
+CR      EQU     $0D             * Carriage Return
+LF      EQU     $0A             * Line Feed
+
 
 ***************************************** INIT **************************************************
 * Las lineas A y B deben quedar preparadas para la recepcion y transmision de caracteres        *
@@ -115,6 +144,10 @@ INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
         * Dirección de la RTI = IVR * 4 = $40 * 4 = $100                    *
         MOVE.L  #RTI, $100                                                  *
         *********************************************************************
+
+        MOVEM.L (A7)+, D0-D1/A0-A1                      *Restaurar registros de la pila
+        RTS                                             *Salir de la subrutina
+**************************************** FIN INIT ****************************************************
 
 ***************************************** PROGRAMA PRINCIPAL *******************************************
 BUFFER: DS.B 2100                                       * Buffer para lectura y escritura de caracteres
