@@ -112,10 +112,8 @@ INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
 
         ********************************** RTI ******************************
         * Actualiza la posición de RTI a la de IVR*4                        *
-        LEA RTI, A0                                                         *
-        LOAD IVR, A5                                                        *
-        MULU #$4, A5                                                        *
-        MOVE.L A0, A5                                                       *
+        * Dirección de la RTI = IVR * 4 = $40 * 4 = $100                    *
+        MOVE.L  #RTI, $100                                                  *
         *********************************************************************
 
 ***************************************** PROGRAMA PRINCIPAL *******************************************
