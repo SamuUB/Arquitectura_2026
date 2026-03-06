@@ -13,6 +13,7 @@
 *    24/02 - Samuel - Inicio del archivo y organización general del proyecto
 *    25/02 - Samuel - Desarrollo de la subrutina INIT
 *    26/02 - Samuel - Terminado INIT
+*    02/03 - Samuel - Inicio RTI
 *
 *  COMENTARIOS INTERNOS:
 *    - NO ESTOY MUY SEGURO DE LO DEL RTI, COMPRUEBALO PQ NS
@@ -22,6 +23,7 @@
 *    Samuel {24/02 15:00, 24/02 16:30}
 *    Samuel {25/02 15:00, 25/02 18:00}
 *    Samuel {26/02 17:00, 26/02 19:00}
+*    Samuel {02/03 15:00, 02/03 17:00}
 *
 *  NOTAS DE DEPURACIÓN:
 *    - Bug 1: Descripción
@@ -71,96 +73,15 @@ LF      EQU     $0A             * Line Feed
 * el programa que invoca a esta subrutina no deja ningun valor representativo en los registros  *
 * del computador salvo el puntero de marco de pila (A6)                                         *
 *************************************************************************************************
-INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
-        **************************** MR1A Y MR1B ****************************
-        *Bit: 7 6 5 4 3 2 1 0                                               *
-        *     ─ ─ ─ ─ ─ ─ ─ ─                                               *
-        *     P P P M C C C C                                               *
-        * P = paridad                                                       *
-        * M = modo (asíncrono)                                              *
-        * C = longitud de caracter                                          *
-        MOVE.B #$13,MR1A                                                    *
-        MOVE.B #$13,MR1B                                                    *
-        * $13 = 0001 0011                                                   *
-        * bits 3-0: 0011 (8) -> Tamaño de caracter máximo = 8 bits          *
-        * bit  4:   1        -> Modo asíncrono                              *
-        * bits 7-5: 000  (0) -> Paridad desactivada                         *
-        *********************************************************************
-
-        **************************** MR2A Y MR2B ****************************
-        * Bit: 7 6 5 4 3 2 1 0                                              *
-        *      ─ ─ ─ ─ ─ ─ ─ ─                                              *
-        *      M M M E S S S S                                              *
-        * M = modo de operación                                             *
-        * E = eco                                                           *
-        * S = bits de parada (STOP)                                         *
-        MOVE.B #$07, MR2A                                                   *
-        MOVE.B #$07, MR2B                                                   *
-        * $07 = 0000 0111                                                   *
-        * bits 3-0: 0111 -> 1 bit de parada                                 *
-        * bit  4  : 0    -> Eco desactivado                                 *
-        * bits 7-5: 000  -> Modo normal                                     *
-        *********************************************************************
-
-        **************************** CSRA Y CSRB ****************************
-        * Bit: 7 6 5 4 | 3 2 1 0                                            *
-        *      ─ ─ ─ ─ | ─ ─ ─ ─                                            *
-        *     RX CLOCK | TX CLOCK                                           *
-        MOVE.B #$CC,CSRA                                                    *
-        MOVE.B #$CC,CSRB                                                    *
-        * $CC = 1100 1100                                                   *
-        * bits 7-4: 1100 -> RX = 38400 bps                                  *
-        * bits 3-0: 1100 -> TX = 38400 bps                                  *
-        *********************************************************************
-
-        **************************** CRA Y CRB ******************************
-        * Bit: 7 6 5 4 | 3 2 1 0                                            *
-        *      ─ ─ ─ ─ | ─ ─ ─ ─                                            *
-        *        M M M   T T R R                                            *
-        * M = miscelaneos                                                   *
-        * T = transmisión                                                   *
-        * R = recepción                                                     *
-        MOVE.B #%00000101,CRA                                               *
-        MOVE.B #%00000101,CRB                                               *
-        * %00000101                                                         *
-        * bits 6-4: 000 -> sin efecto                                       *
-        * bits 3-2: 01  -> Transmisión habilitada                           *
-        * bits 1-0: 01  -> Recepción habilitada                             *
-        *********************************************************************
-
-        ********************************** IVR ******************************
-        MOVE.B #$40,IVR                                                     *
-        *********************************************************************
-
-        ********************************** IMR ******************************
-        * Bit: 7 6 5  4  | 3 2 1  0                                         *
-        *      ─ ─ ── ── | ─ ─ ── ──                                        *
-        *          RB TB       RA TA                                        *
-        * RB/RA = mascara de recepción del canal x                          *
-        * TB/TA = mascara de transmisión del canal x                        *
-        MOVE.B #%00100010,IMR                                               *
-        * %00100010                                                         *
-        * bit 5: 1 -> RxRDYB habilitada                                     *
-        * bit 4: 0 -> TxRDYB inhabilitada                                   *
-        * bit 1: 1 -> RxRDYA habilitada                                     *
-        * bit 0: 0 -> TxRDYA inhabilitada                                   *
-        *********************************************************************
-
-        ********************************** RTI ******************************
-        * Actualiza la posición de RTI a la de IVR*4                        *
-        * Dirección de la RTI = IVR * 4 = $40 * 4 = $100                    *
-        MOVE.L  #RTI, $100                                                  *
-        *********************************************************************
-
-        ********************************** INI_BUFFS ************************
-        * Llama a INI_BUFFS para inicialización de los bufers de entrada    *                        *
-        BSR INI_BUFS                                                        *
-        *********************************************************************
-        
-
-        MOVEM.L (A7)+, D0-D1/A0-A1                      *Restaurar registros de la pila
-        RTS                                             *Salir de la subrutina
-**************************************** FIN INIT ****************************************************
+INIT:
+        MOVE.B          #%00010000,CRA      * Reinicia el puntero MR1
+        MOVE.B          #%00000011,MR1A     * 8 bits por caracter.
+        MOVE.B          #%00000000,MR2A     * Eco desactivado.
+        MOVE.B          #%11001100,CSRA     * Velocidad = 38400 bps.
+        MOVE.B          #%00000000,ACR      * Velocidad = 38400 bps.
+        MOVE.B          #%00000101,CRA      * Transmision y recepcion activados.
+        RTS
+**************************** FIN INIT *********************************************************
 
 
 ***************************************** RTI **************************************************
@@ -171,72 +92,89 @@ INIT:   MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7)
 * 2. Tratamiento de la interrupcion
 * 3. Situaciones “especiales”
 
-RTI:    MOVEM.L D0-D1/A0-A1,-(A7) *Guardar registros en la pila (A7) TEMPORAL, ACTUALIZAR DEPENDIENDO DE LOS REGISTROS USADOS
-        * Leer registro de estado de interrupciones
-        MOVE.B  ISR,D0                                  * Leer ISR (registro de estado de interrupción)
-        ******************************* Recepción canal A *******************************
-        BTST    #0,D0                                   * RxRDYA?
-        BEQ     RXB_CHECK                               * No RxRDYA -> RXB_CHECK
-        MOVE.B  RBA,D1                                  * Leer el carácter recibido
-        MOVE.L  D1,-(A7)                                * Pasar caracter por pila
-        JSR     ESCCAR                                  * Añadir al buffer interno canal A
-        ADDQ.L  #4,A7                                   * Recuperar puntero de pila
-        CMP.L   #$FFFFFFFF,D0                           * SI error -> D0 = 0xFFFF
-        BEQ     RXA_DROP                                * Si error ->
-        BRA     RXB_CHECK
+RTI:    MOVEM.L D0-D3/A0-A2, -(A7)
 
-RXA_DROP:
-        ; Buffer lleno, carácter descartado
-        BRA     RXB_CHECK
+    ***************************************************
+    ***** COMPROBAR RECEPCION LINEA A *****************
+    ***************************************************
+        MOVE.B  SRA, D0          * Leemos RE de la linea A
+        BTST    #0, D0           * RxRDYA?
+        BEQ     RX_B             * Si no, mirar Recepcion línea B
 
-        ;==================== RECEPCIÓN CANAL B ====================
-RXB_CHECK:
-        BTST    #4,D0                 ; RxRDYB?
-        BEQ     TXA_CHECK
-        MOVE.B  RBB,D1
-        MOVE.L  D1,-(A7)
-        JSR     ESCCAR                ; Buffer interno canal B
-        ADDQ.L  #4,A7
-        CMP.L   #$FFFFFFFF,D0
-        BEQ     RXB_DROP
-        BRA     TXA_CHECK
+        MOVE.B  RBA, D1          * Leer caracter recibido en el buffer A
+        MOVE.W  #0, D0
+        * Parametro: caracter para ESCCAR       (D1)
+        * Parametro: descriptor 0 = línea A     (D0)
+        BSR     ESCCAR
 
-RXB_DROP:
-        ; Buffer lleno, carácter descartado
-        BRA     TXA_CHECK
+    * Si buffer lleno (D0 = 0xFFFFFFFF), como el carácter ya se ha leido,
+    * se descarta automáticamente
 
-        ;==================== TRANSMISIÓN CANAL A ==================
-TXA_CHECK:
-        BTST    #1,D0                 ; TxRDYA?
-        BEQ     TXB_CHECK
-        JSR     LEECAR                ; Leer primer carácter del buffer A
-        CMP.L   #$FFFFFFFF,D0
-        BEQ     TXA_DISABLE
-        MOVE.B  D0,TBA                ; Transmitir carácter
-        BRA     TXB_CHECK
+RX_B:
+    ***************************************************
+    ***** COMPROBAR RECEPCION LINEA A *****************
+    ***************************************************
+    MOVE.B  SRB, D0
+    BTST    #0, D0           ; RxRDYB?
+    BEQ     TX_A
 
-TXA_DISABLE:
-        BCLR    #0,IMR                ; Deshabilitar TxRDYA
-        BRA     TXB_CHECK
+    MOVE.B  RBB, D1
+    MOVE.W  #1, D0        ; Descriptor 1 = línea B
+    BSR     ESCCAR
+    ADDQ.L  #6, A7
 
-        ;==================== TRANSMISIÓN CANAL B ==================
-TXB_CHECK:
-        BTST    #5,D0                 ; TxRDYB?
-        BEQ     RTI_END
-        JSR     LEECAR                ; Leer primer carácter del buffer B
-        CMP.L   #$FFFFFFFF,D0
-        BEQ     TXB_DISABLE
-        MOVE.B  D0,TBB                ; Transmitir carácter
-        BRA     RTI_END
+    ; ------------------------------------------------
+TX_A:
+    ; --- COMPROBAR TRANSMISIÓN LÍNEA A ---------------
+    ; ------------------------------------------------
+    MOVE.B  SRA, D0
+    BTST    #2, D0           ; TxRDYA?
+    BEQ     TX_B
 
-TXB_DISABLE:
-        BCLR    #4,IMR                ; Deshabilitar TxRDYB
+    MOVE.W  #0, -(A7)        ; Descriptor línea A
+    BSR     LEECAR
+    ADDQ.L  #2, A7
 
-;==================== FIN DE RTI ===========================
-RTI_END:
-        MOVEM.L (A7)+,D0-D2/A0-A1     ; Restaurar registros
-        RTE                            ; Retorno de la interrupción
+    CMP.L   #-1, D0
+    BEQ     DESH_TX_A        ; Buffer vacío → deshabilitar int TX
 
+    MOVE.B  D0, TBA          ; Enviar carácter
+    BRA     TX_B
+
+DESH_TX_A:
+    MOVE.B  IMR, D1
+    BCLR    #0, D1           ; Deshabilitar TxRDYA
+    MOVE.B  D1, IMR
+
+    ; ------------------------------------------------
+TX_B:
+    ; --- COMPROBAR TRANSMISIÓN LÍNEA B ---------------
+    ; ------------------------------------------------
+    MOVE.B  SRB, D0
+    BTST    #2, D0           ; TxRDYB?
+    BEQ     FIN_RTI
+
+    MOVE.W  #1, -(A7)        ; Descriptor línea B
+    BSR     LEECAR
+    ADDQ.L  #2, A7
+
+    CMP.L   #-1, D0
+    BEQ     DESH_TX_B
+
+    MOVE.B  D0, TBB
+    BRA     FIN_RTI
+
+DESH_TX_B:
+    MOVE.B  IMR, D1
+    BCLR    #4, D1           ; Deshabilitar TxRDYB
+    MOVE.B  D1, IMR
+
+    ; ------------------------------------------------
+FIN_RTI:
+    ; Restaurar registros y salir
+    ; ------------------------------------------------
+    MOVEM.L (A7)+, D0-D3/A0-A2
+    RTE
 ***************************************** PROGRAMA PRINCIPAL *******************************************
 BUFFER: DS.B 2100                                       * Buffer para lectura y escritura de caracteres
 PARDIR: DC.L 0                                          * Direcci´on que se pasa como par´ametro
