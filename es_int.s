@@ -185,6 +185,79 @@ FIN_RTI:
         RTE
 *************************************************************** FIN RTI ***********************************************************
 
+***************************************** SCAN **************************************************
+* Lee caracteres del buffer interno de recepcion y los copia al buffer del usuario.            *
+* Comportamiento no bloqueante: devuelve inmediatamente lo que haya disponible.                *
+* Al finalizar la ejecucion de la instruccion RTS, el puntero de pila (SP) debe apuntar a la  *
+* misma direccion a la que apuntaba antes de ejecutar la instruccion BSR.                      *
+*                                                                                               *
+* Entrada (parametros en pila):                                                                 *
+*    8(A6)  -> puntero al buffer destino donde se copian los caracteres leidos                  *
+*    12(A6) -> descriptor de linea (0 = linea A, 1 = linea B)                                  *
+*    14(A6) -> numero maximo de caracteres a leer                                               *
+*                                                                                               *
+* Salida:                                                                                       *
+*    D0 -> numero de caracteres leidos (0 si buffer vacio, -1 si descriptor invalido)          *
+*************************************************************************************************
+SCAN:
+        LINK    A6,#0
+        MOVEM.L D2-D4/A2,-(A7)    * Salvaguarda de registros
+
+        MOVE.L  8(A6),A2          * A2 = puntero al buffer destino
+        MOVE.W  12(A6),D2         * D2 = descriptor (0=A, 1=B)
+        MOVE.W  14(A6),D3         * D3 = tamaño maximo
+        CLR.L   D4                * D4 = contador de caracteres leidos
+
+*----------- Validacion de parametros -----------*
+        CMP.W   #1,D2
+        BHI     SC_ERR            * Descriptor fuera de rango
+
+        TST.W   D3
+        BEQ     SC_FIN             * Tamaño nulo, devolver 0
+
+*----------- Seleccion de canal -----------*
+        TST.W   D2
+        BEQ     SC_LA
+
+*=========== LECTURA LINEA B ===========*
+SC_LB:
+        MOVEQ   #1,D0             * ID buffer recepcion B
+        BSR     LEECAR            * Intentar leer del buffer interno
+        CMP.L   #-1,D0            * Buffer vacio?
+        BEQ     SC_FIN              * Si vacio, terminar
+
+        MOVE.B  D0,(A2)+          * Copiar caracter al buffer destino y avanzar puntero
+        ADDQ.L  #1,D4             * Incrementar contador
+        SUBQ.W  #1,D3             * Decrementar tamaño restante
+        BNE     SC_LB
+        BRA     SC_FIN
+
+*=========== LECTURA LINEA A ===========*
+SC_LA:
+        MOVEQ   #0,D0             * ID buffer recepcion A
+        BSR     LEECAR            * Intentar leer del buffer interno
+        CMP.L   #-1,D0            * Buffer vacio?
+        BEQ     SC_FIN              * Si vacio, terminar
+
+        MOVE.B  D0,(A2)+          * Copiar caracter al buffer destino y avanzar puntero
+        ADDQ.L  #1,D4             * Incrementar contador
+        SUBQ.W  #1,D3             * Decrementar tamaño restante
+        BNE     SC_LA
+
+*----------- Finalizacion -----------*
+SC_FIN:
+        MOVE.L  D4,D0             * Devolver en D0 el numero de caracteres leidos
+        BRA     SC_RESTORE
+
+SC_ERR:
+        MOVEQ   #-1,D0            * Codigo de error por descriptor invalido
+
+SC_RESTORE:
+        MOVEM.L (A7)+,D2-D4/A2   * Restaurar registros
+        UNLK    A6
+        RTS
+**************************** FIN SCAN ********************************************************
+
 *==============================================
 *  PRINT (buffer, descriptor, tamaño)
 *---------------------------------------------- COMPROBAR
