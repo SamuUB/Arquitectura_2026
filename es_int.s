@@ -99,13 +99,14 @@ INIT:
 **************************** FIN INIT *********************************************************
 
 
-***************************************** RTI **************************************************
-* La invocacion de la rutina de tratamiento de interrupcion es el resultado de la ejecucion
-* de la secuencia de reconocimiento de interrupciones expuesta en la pagina 8. Entre otras
-* acciones esta subrutina debe realizar las siguientes acciones:
-* 1. Identificacion de la fuente de interrupcion.
-* 2. Tratamiento de la interrupcion
-* 3. Situaciones "especiales"
+***************************************** RTI ***********************************************************        
+* La invocacion de la rutina de tratamiento de interrupcion es el resultado de la ejecucion             *
+* de la secuencia de reconocimiento de interrupciones expuesta en la pagina 8. Entre otras              *
+* acciones esta subrutina debe realizar las siguientes acciones:                                        *
+* 1. Identificacion de la fuente de interrupcion.                                                       *
+* 2. Tratamiento de la interrupcion                                                                     *
+* 3. Situaciones "especiales"                                                                           *
+*********************************************************************************************************
 
 RTI:    
         MOVEM.L D0-D2, -(A7)            * Guardar registros que vamos a usar
@@ -127,9 +128,9 @@ RTI:
 
 RX_B:
     ***************************************************
-    ***** COMPROBAR RECEPCION LINEA B *****************  [CORREGIDO: el comentario decia "LINEA A"]
+    ***** COMPROBAR RECEPCION LINEA B *****************  
     ***************************************************
-        BTST    #5, D2                  * Bit 5 = RxRDYB?  [CORREGIDO: era leer SRB de nuevo, usar D2 ya filtrado]
+        BTST    #5, D2                  * Bit 5 = RxRDYB?  
         BEQ     TX_A                    * Si no, mirar Transmision linea A
 
         MOVE.B  RBB, D1                 * Leer caracter recibido en el buffer B
@@ -182,7 +183,7 @@ DESH_TX_B:
 FIN_RTI:
         MOVEM.L (A7)+, D0-D3/A0-A2     * Restaurar registros
         RTE
-
+*************************************************************** FIN RTI ***********************************************************
 
 *==============================================
 *  PRINT (buffer, descriptor, tamaño)
@@ -211,14 +212,14 @@ PRINT:
         BHI     .ERROR             * Descriptor fuera de rango
 
         TST.W   D3
-        BEQ     .FIN               * Tamaño nulo
+        BEQ     FIN               * Tamaño nulo
 
 *----------- Selección de canal -----------*
         TST.W   D2
-        BEQ     .LINEA_A
+        BEQ     LINEA_A
 
 *=========== TRANSMISIÓN LÍNEA B ===========*
-.LINEA_B:
+LINEA_B:
         MOVE.B  (A1)+,D1           * Leer carácter y avanzar puntero
         MOVEQ   #3,D0              * ID buffer transmisión B
         BSR     ESCCAR
@@ -229,42 +230,42 @@ PRINT:
         SUBQ.W  #1,D3              * Decrementar tamaño
         BNE     .LINEA_B
 
-.ACTIVA_B:
+ACTIVA_B:
         TST.L   D5
-        BEQ     .FIN               * No se insertaron datos
+        BEQ     FIN               * No se insertaron datos
 
         BSET    #4,COPIA_IMR       * Habilitar interrupción Tx B
         MOVE.B  COPIA_IMR,IMR
-        BRA     .FIN
+        BRA     FIN
 
 *=========== TRANSMISIÓN LÍNEA A ===========*
-.LINEA_A:
+LINEA_A:
         MOVE.B  (A1)+,D1
         MOVEQ   #2,D0              * ID buffer transmisión A
         BSR     ESCCAR
         CMP.L   #-1,D0
-        BEQ     .ACTIVA_A
+        BEQ     ACTIVA_A
 
         ADDQ.L  #1,D5
         SUBQ.W  #1,D3
         BNE     .LINEA_A
 
-.ACTIVA_A:
+ACTIVA_A:
         TST.L   D5
-        BEQ     .FIN
+        BEQ     FIN
 
         BSET    #0,COPIA_IMR       * Habilitar interrupción Tx A
         MOVE.B  COPIA_IMR,IMR
 
 *----------- Finalización -----------*
-.FIN:
+FIN:
         MOVE.L  D5,D0              * Número de caracteres aceptados
-        BRA     .RESTORE
+        BRA     RESTORE
 
-.ERROR:
+ERROR:
         MOVEQ   #-1,D0             * Código de error
 
-.RESTORE:
+RESTORE:
         MOVEM.L (A7)+,D2-D3/A1     * Restaurar registros
         UNLK    A6
         RTS
