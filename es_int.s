@@ -17,6 +17,8 @@
 *    30/03 - ChengJian - Correcciones de sintaxis y correccion de errores en el programa Principal
 *    31/03 - ChengJian - Desarrollo de la subrutina SCAN
 *    01/04 - ChengJian - Correcciones en SCAN
+*    04/04 - ChengJian - Corrección de la subrutinas PRINT, SCAN y RTI,
+*            arreglo de errores de compilación y ejecución de pruebas de funcionamiento
 *
 *  COMENTARIOS INTERNOS:
 *    - NO ESTOY MUY SEGURO DE LO DEL RTI, COMPRUEBALO PQ NS
@@ -30,6 +32,7 @@
 *    ChengJian {30/03 15:00, 30/03 17:00}
 *    ChengJian {31/03 12:00, 31/03 14:00}
 *    ChengJian {01/04 17:00, 01/04 18:30}
+*    ChengJian {04/04 17:00, 04/04 20:00}
 *
 *  NOTAS DE DEPURACIÓN:
 *    - Bug 1: Descripción
@@ -69,9 +72,9 @@ IVR     EQU     $effc19         * Vector de interrupción
 CR      EQU     $0D             * Carriage Return
 LF      EQU     $0A             * Line Feed
 
-;***************************************** VARIABLES **************************************************
+***************************************** VARIABLES **************************************************
 COPIA_IMR   DC.B    0           * Copia del IMR para manipularlo en RTI
-
+            DS.B    1           * Relleno para alinear a palabra
 ***************************************** INIT **************************************************
 * Las lineas A y B deben quedar preparadas para la recepcion y transmision de caracteres        *
 * mediante E/S por interrupciones. Al finalizar la ejecucion de la instruccion RTS, el puntero  *
@@ -115,79 +118,67 @@ INIT:
 *********************************************************************************************************
 
 RTI:    
-        MOVEM.L D0-D2, -(A7)            * Guardar registros que vamos a usar
-        MOVE.B  ISR, D2                 * Leer el ISR para identificar la fuente de interrupcion
-        AND.B   COPIA_IMR, D2           * Filtrar solo las interrupciones habilitadas (aplicar mascara)
+        MOVEM.L A1/D0-D2,-(A7)          * Guardar registros que vamos a usar
+
+        MOVE.B  ISR,D2                  * Leer el ISR para identificar la fuente de interrupcion
+        AND.B   COPIA_IMR,D2            * Filtrar solo las interrupciones habilitadas (aplicar mascara)
 
         ***************************************************
         ***** COMPROBAMOS RECEPCION LINEA A ***************
         ***************************************************
-        BTST    #0, D0                  * Bit 0 = RxRDYA?
+        BTST    #1,D2                   * Bit 1 = RxRDYA
         BEQ     TX_A                    * Si no, mirar Transmision linea A
-        MOVE.B  RBA, D1                 * Leer caracter recibido en el buffer A
-        CLR.L   D2                      * D2 = 0 para indicar linea A
-        MOVE.L  D2,D0                   * Descriptor 0 = linea A
+        MOVE.B  RBA,D1                  * Leer caracter recibido en el buffer A
+        MOVE.L  #0,D0                   * Descriptor 0 = linea A
         BSR     ESCCAR                  * Guardar en buffer interno
-
-        * Si buffer lleno (D0 = 0xFFFFFFFF), el caracter ya se leyo del hardware
-        * y se descarta automaticamente, no hay que hacer nada mas
-
-RX_B:
-    ***************************************************
-    ***** COMPROBAR RECEPCION LINEA B *****************  
-    ***************************************************
-        BTST    #5, D2                  * Bit 5 = RxRDYB?  
-        BEQ     TX_A                    * Si no, mirar Transmision linea A
-
-        MOVE.B  RBB, D1                 * Leer caracter recibido en el buffer B
-        MOVE.L  #1, D0                  * Descriptor 1 = linea B
-        BSR     ESCCAR                  * Guardar en buffer interno
-        * [ELIMINADO: ADDQ.L #6, A7 incorrecto, ESCCAR no usa pila]
+        * Si buffer lleno (D0 = 0xFFFFFFFF), el caracter se descarta automaticamente
 
 TX_A:
-    ***************************************************
-    ***** COMPROBAR TRANSMISION LINEA A ***************
-    ***************************************************
-        BTST    #0, D2                  * Bit 0 = TxRDYA?  [CORREGIDO: usamos D2 ya filtrado del ISR]
-        BEQ     TX_B                    * Si no, mirar Transmision linea B
-
-        MOVE.L  #2, D0                  * Descriptor 2 = transmision linea A  [CORREGIDO: LEECAR recibe desc en D0, no en pila]
+        ***************************************************
+        ***** COMPROBAR TRANSMISION LINEA A ***************
+        ***************************************************
+        BTST    #0,D2                   * Bit 0 = TxRDYA
+        BEQ     RX_B                    * Si no, mirar Recepcion linea B
+        MOVE.L  #2,D0                   * Descriptor 2 = transmision linea A
         BSR     LEECAR                  * Intentar leer del buffer interno
-        * [ELIMINADO: ADDQ.L #2, A7 incorrecto, LEECAR no usa pila]
+        CMP.L   #-1,D0                  * Buffer vacio?
+        BNE     ENVIA_A                 * Si no vacio, enviar caracter
+        BCLR    #0,COPIA_IMR            * Deshabilitar TxRDYA en la copia
+        MOVE.B  COPIA_IMR,IMR           * Actualizar el IMR real
+        BRA     RX_B
 
-        CMP.L   #-1, D0                 * Buffer vacio?
-        BEQ     DESH_TX_A               * Si vacio, deshabilitar interrupcion TX
+ENVIA_A:
+        MOVE.B  D0,TBA                  * Enviar caracter por linea A
 
-        MOVE.B  D0, TBA                 * Enviar caracter por linea A
-        BRA     TX_B
-
-DESH_TX_A:
-        BCLR    #0, COPIA_IMR           * Deshabilitar TxRDYA en la copia  [CORREGIDO: operar sobre COPIA_IMR, no leer IMR]
-        MOVE.B  COPIA_IMR, IMR          * Actualizar el IMR real
+RX_B:
+        ***************************************************
+        ***** COMPROBAR RECEPCION LINEA B *****************
+        ***************************************************
+        BTST    #5,D2                   * Bit 5 = RxRDYB
+        BEQ     TX_B                    * Si no, mirar Transmision linea B
+        MOVE.B  RBB,D1                  * Leer caracter recibido en el buffer B
+        MOVE.L  #1,D0                   * Descriptor 1 = linea B
+        BSR     ESCCAR                  * Guardar en buffer interno
 
 TX_B:
-    ***************************************************
-    ***** COMPROBAR TRANSMISION LINEA B ***************
-    ***************************************************
-        BTST    #4, D2                  * Bit 4 = TxRDYB?  [CORREGIDO: usamos D2 ya filtrado del ISR]
+        ***************************************************
+        ***** COMPROBAR TRANSMISION LINEA B ***************
+        ***************************************************
+        BTST    #4,D2                   * Bit 4 = TxRDYB
         BEQ     FIN_RTI                 * Si no, terminar
-
-        MOVE.L  #3, D0                  * Descriptor 3 = transmision linea B  [CORREGIDO: desc en D0, no en pila]
+        MOVE.L  #3,D0                   * Descriptor 3 = transmision linea B
         BSR     LEECAR                  * Intentar leer del buffer interno
-        * [ELIMINADO: ADDQ.L #2, A7 incorrecto]
-
-        CMP.L   #-1, D0                 * Buffer vacio?
-        BEQ     DESH_TX_B               * Si vacio, deshabilitar interrupcion TX
-
-        MOVE.B  D0, TBB                 * Enviar caracter por linea B
+        CMP.L   #-1,D0                  * Buffer vacio?
+        BNE     ENVIA_B                 * Si no vacio, enviar caracter
+        BCLR    #4,COPIA_IMR            * Deshabilitar TxRDYB en la copia
+        MOVE.B  COPIA_IMR,IMR           * Actualizar el IMR real
         BRA     FIN_RTI
 
-DESH_TX_B:
-        BCLR    #4, COPIA_IMR           * Deshabilitar TxRDYB en la copia  [CORREGIDO: operar sobre COPIA_IMR]
-        MOVE.B  COPIA_IMR, IMR          * Actualizar el IMR real
+ENVIA_B:
+        MOVE.B  D0,TBB                  * Enviar caracter por linea B
 
 FIN_RTI:
-        MOVEM.L (A7)+, D0-D3/A0-A2     * Restaurar registros
+        MOVEM.L (A7)+,A1/D0-D2          * Restaurar registros
         RTE
 *************************************************************** FIN RTI ***********************************************************
 
@@ -278,8 +269,8 @@ SC_RESTORE:
 *==============================================
 
 PRINT:
-        LINK    A6,#-12
-        MOVEM.L D2-D3/A1,-(A7)     * Salvaguarda de registros
+        LINK    A6,#0
+        MOVEM.L D2-D3/D5/A1,-(A7)     * Salvaguarda de registros
 
         MOVE.L  8(A6),A1           * A1 = puntero a buffer origen
         MOVE.W 12(A6),D2           * D2 = descriptor (línea)
@@ -288,7 +279,7 @@ PRINT:
 
 *----------- Validación de parámetros -----------*
         CMP.W   #1,D2
-        BHI     .ERROR             * Descriptor fuera de rango
+        BHI     ERROR             * Descriptor fuera de rango
 
         TST.W   D3
         BEQ     FIN               * Tamaño nulo
@@ -303,11 +294,11 @@ LINEA_B:
         MOVEQ   #3,D0              * ID buffer transmisión B
         BSR     ESCCAR
         CMP.L   #-1,D0
-        BEQ     .ACTIVA_B          * Buffer interno lleno
+        BEQ     ACTIVA_B          * Buffer interno lleno
 
         ADDQ.L  #1,D5              * Incrementar contador
         SUBQ.W  #1,D3              * Decrementar tamaño
-        BNE     .LINEA_B
+        BNE     LINEA_B
 
 ACTIVA_B:
         TST.L   D5
@@ -327,7 +318,7 @@ LINEA_A:
 
         ADDQ.L  #1,D5
         SUBQ.W  #1,D3
-        BNE     .LINEA_A
+        BNE     LINEA_A
 
 ACTIVA_A:
         TST.L   D5
@@ -345,7 +336,7 @@ ERROR:
         MOVEQ   #-1,D0             * Código de error
 
 RESTORE:
-        MOVEM.L (A7)+,D2-D3/A1     * Restaurar registros
+        MOVEM.L (A7)+,D2-D3/D5/A1     * Restaurar registros
         UNLK    A6
         RTS
 
@@ -380,7 +371,7 @@ BUCLE:
 
             * --- PRINT por línea A con lo que se leyó ---
             MOVE.W  D0,-(A7)           * Tamaño = lo que se leyó
-            MOVE.W  #1,-(A7)           * Descriptor = 0 → línea A
+            MOVE.W  #1,-(A7)           * Descriptor = 0 → línea B
             MOVE.L  #BUFFER,-(A7)      * Buffer con los caracteres
             BSR     PRINT
             ADD.L   #8,A7              * Limpiar pila
@@ -388,4 +379,13 @@ BUCLE:
             BRA     BUCLE
 
 BUFFER:     DS.B    200                * Espacio para los caracteres
+
+BUS_ERROR:  BREAK
+            NOP
+ADDRESS_ER: BREAK
+            NOP
+ILLEGAL_IN: BREAK
+            NOP
+PRIV_VIOLT: BREAK
+            NOP
 INCLUDE bib_aux.s
