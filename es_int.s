@@ -14,6 +14,9 @@
 *    25/02 - Samuel - Desarrollo de la subrutina INIT
 *    26/02 - Samuel - Terminado INIT
 *    02/03 - Samuel - Inicio RTI
+*    30/03 - ChengJian - Correcciones de sintaxis y correccion de errores en el programa Principal
+*    31/03 - ChengJian - Desarrollo de la subrutina SCAN
+*    01/04 - ChengJian - Correcciones en SCAN
 *
 *  COMENTARIOS INTERNOS:
 *    - NO ESTOY MUY SEGURO DE LO DEL RTI, COMPRUEBALO PQ NS
@@ -24,6 +27,9 @@
 *    Samuel {25/02 15:00, 25/02 18:00}
 *    Samuel {26/02 17:00, 26/02 19:00}
 *    Samuel {02/03 15:00, 02/03 17:00}
+*    ChengJian {30/03 15:00, 30/03 17:00}
+*    ChengJian {31/03 12:00, 31/03 14:00}
+*    ChengJian {01/04 17:00, 01/04 18:30}
 *
 *  NOTAS DE DEPURACIÓN:
 *    - Bug 1: Descripción
