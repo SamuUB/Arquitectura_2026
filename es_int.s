@@ -47,7 +47,8 @@
 
         ORG     $400
 ***************************************** EQUIVALENCIAS **************************************************
-MR1A    EQU     $effc01         * Modo A 
+**************** MODO A ****************************************************************
+MR1A    EQU     $effc01         * Modo A        
 MR2A    EQU     $effc01         * Modo A, registro 2 
 SRA     EQU     $effc03         * Estado A (lectura)
 CSRA    EQU     $effc03         * Selección de reloj A (escritura)
@@ -55,10 +56,12 @@ CRA     EQU     $effc05         * Control A (escritura)
 TBA     EQU     $effc07         * Buffer de transmisión A (escritura)
 RBA     EQU     $effc07         * Buffer de recepción A (lectura)
 
+**************** GENERAL ****************************************************************
 ACR     EQU     $effc09         * Control auxiliar
 IMR     EQU     $effc0B         * Máscara de interrupción (escritura)
 ISR     EQU     $effc0B         * Estado de interrupción (lectura)
 
+**************** MODO B ****************************************************************
 MR1B    EQU     $effc11         * Modo B (escritura)
 MR2B    EQU     $effc11         * de modo B, registro 2 (escritura)
 SRB     EQU     $effc13         * Estado B (lectura)
@@ -85,23 +88,29 @@ COPIA_IMR   DC.B    0           * Copia del IMR para manipularlo en RTI
 * del computador salvo el puntero de marco de pila (A6)                                         *
 *************************************************************************************************
 INIT:
-        MOVE.B          #%00010000,CRA          * Reinicia el puntero MR1 de linea A
-        MOVE.B          #%00000011,MR1A         * 8 bits por caracter, linea A
-        MOVE.B          #%00000000,MR2A         * Eco desactivado, linea A
-        MOVE.B          #%11001100,CSRA         * Velocidad = 38400 bps, linea A
-        MOVE.B          #%00000101,CRA          * Transmision y recepcion activados, linea A
+        **************** LINEA A ****************************************************************
+        MOVE.B          #%00010000,CRA          * Reinicia el puntero MR1                       *
+        MOVE.B          #%00000011,MR1A         * 8 bits por caracter                           *
+        MOVE.B          #%00000000,MR2A         * Eco desactivado                               *
+        MOVE.B          #%11001100,CSRA         * Velocidad = 38400 bps                         *
+        MOVE.B          #%00000101,CRA          * Transmision y recepcion activados             *
+        *****************************************************************************************
 
-        MOVE.B          #%00000000,ACR          * Conjunto de velocidades 1
-        MOVE.B          #$40,IVR                * Vector de interrupcion en $100  [AÑADIDO]
-        MOVE.L          #RTI,$100               * Poner RTI en la tabla de vectores  
-        MOVE.B          #%00100010,IMR          * Habilitar RxRDY linea A (bit1) y B (bit5)
-        MOVE.B          #%00100010,COPIA_IMR    * Guardar copia del IMR
+        **************** GENERAL ****************************************************************
+        MOVE.B          #%00000000,ACR          * Conjunto de velocidades 1                     *
+        MOVE.B          #$40,IVR                * Vector de interrupcion en $100                *
+        MOVE.L          #RTI,$100               * Poner RTI en la tabla de vectores             *
+        MOVE.B          #%00100010,IMR          * Habilitar RxRDY linea A (bit1) y B (bit5)     *
+        MOVE.B          #%00100010,COPIA_IMR    * Guardar copia del IMR                         *
+        *****************************************************************************************
 
-        MOVE.B          #%00010000,CRB          * Reinicia el puntero MR1 de linea B
-        MOVE.B          #%00000011,MR1B         * 8 bits por caracter, linea B
-        MOVE.B          #%00000000,MR2B         * Eco desactivado, linea B
-        MOVE.B          #%11001100,CSRB         * Velocidad = 38400 bps, linea B
-        MOVE.B          #%00000101,CRB          * Transmision y recepcion activados, linea B
+        **************** LINEA B ****************************************************************
+        MOVE.B          #%00010000,CRB          * Reinicia el puntero MR1                       *
+        MOVE.B          #%00000011,MR1B         * 8 bits por caracter                           *
+        MOVE.B          #%00000000,MR2B         * Eco desactivado                               *
+        MOVE.B          #%11001100,CSRB         * Velocidad = 38400 bps                         *
+        MOVE.B          #%00000101,CRB          * Transmision y recepcion activados             *
+        *****************************************************************************************
 
         BSR             INI_BUFS                * Inicializar buffers internos  
         RTS
@@ -117,231 +126,224 @@ INIT:
 * 3. Situaciones "especiales"                                                                           *
 *********************************************************************************************************
 
-RTI:    
-        MOVEM.L A1/D0-D2,-(A7)          * Guardar registros que vamos a usar
+RTI:
+        MOVEM.L A1/D0-D2,-(A7)          * Salvaguarda de registros
 
         MOVE.B  ISR,D2                  * Leer el ISR para identificar la fuente de interrupcion
-        AND.B   COPIA_IMR,D2            * Filtrar solo las interrupciones habilitadas (aplicar mascara)
+        AND.B   COPIA_IMR,D2            * Filtrar solo las interrupciones habilitadas
 
-        ***************************************************
-        ***** COMPROBAMOS RECEPCION LINEA A ***************
-        ***************************************************
-        BTST    #1,D2                   * Bit 1 = RxRDYA
-        BEQ     TX_A                    * Si no, mirar Transmision linea A
-        MOVE.B  RBA,D1                  * Leer caracter recibido en el buffer A
-        MOVE.L  #0,D0                   * Descriptor 0 = linea A
-        BSR     ESCCAR                  * Guardar en buffer interno
-        * Si buffer lleno (D0 = 0xFFFFFFFF), el caracter se descarta automaticamente
+        **************** LINEA A - RECEPCION ************************************************************
+        BTST    #1,D2                   * Bit 1 = RxRDYA (Recepcion lista linea A)                      *
+        BEQ     TX_A                    * Si no, pasar a transmision linea A                            *
+        MOVE.B  RBA,D1                  * Leer caracter recibido del buffer A                           *
+        MOVE.L  #0,D0                   * Descriptor 0 = linea A (recepcion)                            *
+        BSR     ESCCAR                  * Guardar en buffer interno                                     *
+        *************************************************************************************************
 
+        **************** LINEA A - TRANSMISION **********************************************************
 TX_A:
-        ***************************************************
-        ***** COMPROBAR TRANSMISION LINEA A ***************
-        ***************************************************
-        BTST    #0,D2                   * Bit 0 = TxRDYA
-        BEQ     RX_B                    * Si no, mirar Recepcion linea B
-        MOVE.L  #2,D0                   * Descriptor 2 = transmision linea A
-        BSR     LEECAR                  * Intentar leer del buffer interno
-        CMP.L   #-1,D0                  * Buffer vacio?
-        BNE     ENVIA_A                 * Si no vacio, enviar caracter
-        BCLR    #0,COPIA_IMR            * Deshabilitar TxRDYA en la copia
-        MOVE.B  COPIA_IMR,IMR           * Actualizar el IMR real
-        BRA     RX_B
+        BTST    #0,D2                   * Bit 0 = TxRDYA (Transmision linea A)                    
+        BEQ     RX_B                    * Si != 0, pasar a recepcion linea B                              
+        MOVE.L  #2,D0                   * Descriptor 2 = transmision linea A                            
+        BSR     LEECAR                  * Intentar leer del buffer interno                              
+        CMP.L   #-1,D0                  * Buffer vacio?                                                 
+        BNE     ENVIA_A                 * Si no vacio, enviar caracter                                  
+        BCLR    #0,COPIA_IMR            * Deshabilitar TxRDYA en la copia del IMR                       
+        MOVE.B  COPIA_IMR,IMR           * Actualizar el IMR real                                        
+        BRA     RX_B                                                                                    
 
 ENVIA_A:
         MOVE.B  D0,TBA                  * Enviar caracter por linea A
 
+        **************** LINEA B - RECEPCION ************************************************************
 RX_B:
-        ***************************************************
-        ***** COMPROBAR RECEPCION LINEA B *****************
-        ***************************************************
-        BTST    #5,D2                   * Bit 5 = RxRDYB
-        BEQ     TX_B                    * Si no, mirar Transmision linea B
-        MOVE.B  RBB,D1                  * Leer caracter recibido en el buffer B
-        MOVE.L  #1,D0                   * Descriptor 1 = linea B
+        BTST    #5,D2                   * Bit 5 = RxRDYB (Recepcion lista linea B)
+        BEQ     TX_B                    * Si no, pasar a transmision linea B
+        MOVE.B  RBB,D1                  * Leer caracter recibido del buffer B
+        MOVE.L  #1,D0                   * Descriptor 1 = linea B (recepcion)
         BSR     ESCCAR                  * Guardar en buffer interno
 
+
+        **************** LINEA B - TRANSMISION **********************************************************
 TX_B:
-        ***************************************************
-        ***** COMPROBAR TRANSMISION LINEA B ***************
-        ***************************************************
-        BTST    #4,D2                   * Bit 4 = TxRDYB
-        BEQ     FIN_RTI                 * Si no, terminar
+        BTST    #4,D2                   * Bit 4 = TxRDYB (Transmision lista linea B)
+        BEQ     FIN_RTI                 * Si no, finalizar la rutina
         MOVE.L  #3,D0                   * Descriptor 3 = transmision linea B
         BSR     LEECAR                  * Intentar leer del buffer interno
         CMP.L   #-1,D0                  * Buffer vacio?
         BNE     ENVIA_B                 * Si no vacio, enviar caracter
-        BCLR    #4,COPIA_IMR            * Deshabilitar TxRDYB en la copia
+        BCLR    #4,COPIA_IMR            * Deshabilitar TxRDYB en la copia del IMR
         MOVE.B  COPIA_IMR,IMR           * Actualizar el IMR real
         BRA     FIN_RTI
 
 ENVIA_B:
         MOVE.B  D0,TBB                  * Enviar caracter por linea B
 
+        **************** FINALIZACION *******************************************************************
 FIN_RTI:
         MOVEM.L (A7)+,A1/D0-D2          * Restaurar registros
         RTE
-*************************************************************** FIN RTI ***********************************************************
+**************************** FIN RTI *********************************************************
 
 ***************************************** SCAN **************************************************
-* Lee caracteres del buffer interno de recepcion y los copia al buffer del usuario.            *
-* Comportamiento no bloqueante: devuelve inmediatamente lo que haya disponible.                *
-* Al finalizar la ejecucion de la instruccion RTS, el puntero de pila (SP) debe apuntar a la  *
-* misma direccion a la que apuntaba antes de ejecutar la instruccion BSR.                      *
+* Lee caracteres del buffer interno de recepcion y los copia al buffer del usuario.             *
+* Comportamiento no bloqueante: devuelve inmediatamente lo que haya disponible.                 *
+* Al finalizar la ejecucion de la instruccion RTS, el puntero de pila (SP) debe apuntar a la    *
+* misma direccion a la que apuntaba antes de ejecutar la instruccion BSR.                       *
 *                                                                                               *
 * Entrada (parametros en pila):                                                                 *
 *    8(A6)  -> puntero al buffer destino donde se copian los caracteres leidos                  *
-*    12(A6) -> descriptor de linea (0 = linea A, 1 = linea B)                                  *
+*    12(A6) -> descriptor de linea (0 = linea A, 1 = linea B)                                   *
 *    14(A6) -> numero maximo de caracteres a leer                                               *
 *                                                                                               *
 * Salida:                                                                                       *
-*    D0 -> numero de caracteres leidos (0 si buffer vacio, -1 si descriptor invalido)          *
+*    D0 -> numero de caracteres leidos (0 si buffer vacio, -1 si descriptor invalido)           *
 *************************************************************************************************
 SCAN:
         LINK    A6,#0
-        MOVEM.L D2-D4/A2,-(A7)    * Salvaguarda de registros
+        MOVEM.L D2-D4/A2,-(A7)    * Guardado de registros en la pila
 
-        MOVE.L  8(A6),A2          * A2 = puntero al buffer destino
-        MOVE.W  12(A6),D2         * D2 = descriptor (0=A, 1=B)
-        MOVE.W  14(A6),D3         * D3 = tamaño maximo
-        CLR.L   D4                * D4 = contador de caracteres leidos
+        MOVE.L  8(A6),A2          * A2 = puntero al buffer destino donde copiar caracteres leidos
+        MOVE.W  12(A6),D2         * D2 = descriptor de linea (0 = linea A, 1 = linea B)
+        MOVE.W  14(A6),D3         * D3 = tamaño maximo de caracteres a leer
+        CLR.L   D4                * D4 = contador de caracteres leidos del buffer interno
 
-*----------- Validacion de parametros -----------*
-        CMP.W   #1,D2
-        BHI     SC_ERR            * Descriptor fuera de rango
+        ****************** Validacion de parametros *********************************************
+        CMP.W   #1,D2                                                                           *
+        BHI     SC_ERR            * Descriptor fuera de rango (mayor que 1), saltar a error     *
+                                                                                                *
+        TST.W   D3                                                                              *       
+        BEQ     SC_FIN            * Tamaño nulo, devolver 0 caracteres leidos                   *
+                                                                                                *
+        *****************************************************************************************
 
-        TST.W   D3
-        BEQ     SC_FIN             * Tamaño nulo, devolver 0
+        ****************** Seleccion de canal ***************************************************
+        TST.W   D2                                                                              *
+        BEQ     SC_LA             * Si descriptor = 0, leer de linea A                          *
+        *****************************************************************************************
+        
+        ****************** LECTURA LINEA B ******************************************************
+SC_LB:                                                                                          *
+        MOVEQ   #1,D0             * ID descriptor para buffer interno recepcion linea B         *
+        BSR     LEECAR            * Intentar leer caracter del buffer interno                   *
+        CMP.L   #-1,D0            * Comprobar si buffer interno vacio (retorna -1)              *
+        BEQ     SC_FIN            * Si buffer vacio, terminar lectura inmediatamente            *
+                                                                                                *
+        MOVE.B  D0,(A2)+          * Copiar caracter leido al buffer destino y avanzar puntero   *
+        ADDQ.L  #1,D4             * Incrementar contador de caracteres leidos                   *
+        SUBQ.W  #1,D3             * Decrementar tamaño restante por leer                        *
+        BNE     SC_LB             * Si quedan caracteres por leer, continuar con linea B        *
+        BRA     SC_FIN            * Sino, finalizar                                             *       
+        *****************************************************************************************
 
-*----------- Seleccion de canal -----------*
-        TST.W   D2
-        BEQ     SC_LA
+        ****************** LECTURA LINEA A ******************************************************
+SC_LA:                                                                                          *
+        MOVEQ   #0,D0             * ID descriptor para buffer interno recepcion linea A         *
+        BSR     LEECAR            * Intentar leer caracter del buffer interno                   *       
+        CMP.L   #-1,D0            * Comprobar si buffer interno vacio (retorna -1)              *
+        BEQ     SC_FIN            * Si buffer vacio, terminar lectura inmediatamente            *
+                                                                                                *
+        MOVE.B  D0,(A2)+          * Copiar caracter leido al buffer destino y avanzar puntero   *
+        ADDQ.L  #1,D4             * Incrementar contador de caracteres leidos                   *                           
+        SUBQ.W  #1,D3             * Decrementar tamaño restante por leer                        *
+        BNE     SC_LA             * Si quedan caracteres por leer, continuar con linea A        *
+        *****************************************************************************************
 
-*=========== LECTURA LINEA B ===========*
-SC_LB:
-        MOVEQ   #1,D0             * ID buffer recepcion B
-        BSR     LEECAR            * Intentar leer del buffer interno
-        CMP.L   #-1,D0            * Buffer vacio?
-        BEQ     SC_FIN              * Si vacio, terminar
+        ****************** FINALIZACION *********************************************************
+SC_FIN:                                                                                         *
+        MOVE.L  D4,D0             * Devolver en D0 el numero total de caracteres leidos         *
+        BRA     SC_RESTORE        * Saltar a restauracion de registros                          *
+                                                                                                *
+SC_ERR:                                                                                         *
+        MOVEQ   #-1,D0            * Codigo de error por descriptor invalido                     *
+                                                                                                *                   
+SC_RESTORE:                                                                                     *
+        MOVEM.L (A7)+,D2-D4/A2    * Restaurar registros desde la pila                           *
+        UNLK    A6                * Desmontar marco de pila                                     *
+        RTS                       * Retornar a la direccion de llamada                          *
+**************************** FIN SCAN ***********************************************************
 
-        MOVE.B  D0,(A2)+          * Copiar caracter al buffer destino y avanzar puntero
-        ADDQ.L  #1,D4             * Incrementar contador
-        SUBQ.W  #1,D3             * Decrementar tamaño restante
-        BNE     SC_LB
-        BRA     SC_FIN
-
-*=========== LECTURA LINEA A ===========*
-SC_LA:
-        MOVEQ   #0,D0             * ID buffer recepcion A
-        BSR     LEECAR            * Intentar leer del buffer interno
-        CMP.L   #-1,D0            * Buffer vacio?
-        BEQ     SC_FIN              * Si vacio, terminar
-
-        MOVE.B  D0,(A2)+          * Copiar caracter al buffer destino y avanzar puntero
-        ADDQ.L  #1,D4             * Incrementar contador
-        SUBQ.W  #1,D3             * Decrementar tamaño restante
-        BNE     SC_LA
-
-*----------- Finalizacion -----------*
-SC_FIN:
-        MOVE.L  D4,D0             * Devolver en D0 el numero de caracteres leidos
-        BRA     SC_RESTORE
-
-SC_ERR:
-        MOVEQ   #-1,D0            * Codigo de error por descriptor invalido
-
-SC_RESTORE:
-        MOVEM.L (A7)+,D2-D4/A2   * Restaurar registros
-        UNLK    A6
-        RTS
-**************************** FIN SCAN ********************************************************
-
-*==============================================
-*  PRINT (buffer, descriptor, tamaño)
-*---------------------------------------------- COMPROBAR
-*  Entrada:
-*    8(A6)  -> puntero a buffer
-*    12(A6) -> descriptor (0=A, 1=B)
-*    14(A6) -> número de caracteres
-*
-*  Salida:
-*    D0 -> número de caracteres aceptados
-*           (-1 si descriptor inválido)
-*==============================================
+**************************** PRINT **************************************************************
 
 PRINT:
-        LINK    A6,#0
-        MOVEM.L D2-D3/D5/A1,-(A7)     * Salvaguarda de registros
+        ****************** DATOS ****************************************************************
+        LINK    A6,#0                                                                           *
+        MOVEM.L D2-D3/D5/A1,-(A7)     * Salvaguarda de registros                                *
+                                                                                                *
+        MOVE.L  8(A6),A1           * A1 = puntero a buffer origen                               *
+        MOVE.W 12(A6),D2           * D2 = descriptor (línea)                                    *
+        MOVE.W 14(A6),D3           * D3 = tamaño restante                                       *
+        CLR.L   D5                 * D5 = contador de caracteres insertados                     *
+        *****************************************************************************************
 
-        MOVE.L  8(A6),A1           * A1 = puntero a buffer origen
-        MOVE.W 12(A6),D2           * D2 = descriptor (línea)
-        MOVE.W 14(A6),D3           * D3 = tamaño restante
-        CLR.L   D5                 * D5 = contador de caracteres insertados
+        ****************** VALIDACIÓN DE PARÁMETROS *********************************************
+        CMP.W   #1,D2                                                                           *
+        BHI     ERROR             * Descriptor fuera de rango                                   *
+                                                                                                *
+        TST.W   D3                                                                              *
+        BEQ     FIN               * Tamaño nulo                                                 *
+        *****************************************************************************************
 
-*----------- Validación de parámetros -----------*
-        CMP.W   #1,D2
-        BHI     ERROR             * Descriptor fuera de rango
+        ****************** SELECCIÓN DE CANAL ***************************************************                
+        TST.W   D2                                                                              *
+        BEQ     LINEA_A                                                                         *
+        *****************************************************************************************
 
-        TST.W   D3
-        BEQ     FIN               * Tamaño nulo
+        ****************** TRANSMISIÓN LÍNEA B **************************************************
+LINEA_B:                                                                                        *       
+        MOVE.B  (A1)+,D1           * Leer carácter y avanzar puntero                            *
+        MOVEQ   #3,D0              * ID buffer transmisión B                                    *
+        BSR     ESCCAR                                                                          *
+        CMP.L   #-1,D0                                                                          *
+        BEQ     ACTIVA_B          * Buffer interno lleno                                        *
+                                                                                                *
+        ADDQ.L  #1,D5              * Incrementar contador                                       *
+        SUBQ.W  #1,D3              * Decrementar tamaño                                         *
+        BNE     LINEA_B                                                                         *
+                                                                                                *
+ACTIVA_B:                                                                                       *
+        TST.L   D5                                                                              *
+        BEQ     FIN               * No se insertaron datos                                      *
+                                                                                                *
+                                                                                                *
+        BSET    #4,COPIA_IMR       * Habilitar interrupción Tx B                                *
+        MOVE.B  COPIA_IMR,IMR                                                                   *
+        BRA     FIN                                                                             *
+        *****************************************************************************************
 
-*----------- Selección de canal -----------*
-        TST.W   D2
-        BEQ     LINEA_A
+        ****************** TRANSMISIÓN LÍNEA A **************************************************
+LINEA_A:                                                                                        *
+        MOVE.B  (A1)+,D1                                                                        *
+        MOVEQ   #2,D0              * ID buffer transmisión A                                    *
+        BSR     ESCCAR                                                                          *         
+        CMP.L   #-1,D0                                                                          *
+        BEQ     ACTIVA_A                                                                        *
+                                                                                                *
+        ADDQ.L  #1,D5                                                                           *
+        SUBQ.W  #1,D3                                                                           *
+        BNE     LINEA_A                                                                         *
+                                                                                                *
+ACTIVA_A:                                                                                       *
+        TST.L   D5                                                                              *
+        BEQ     FIN                                                                             *
+                                                                                                *
+        BSET    #0,COPIA_IMR       * Habilitar interrupción Tx A                                *       
+        MOVE.B  COPIA_IMR,IMR                                                                   *
+        *****************************************************************************************
 
-*=========== TRANSMISIÓN LÍNEA B ===========*
-LINEA_B:
-        MOVE.B  (A1)+,D1           * Leer carácter y avanzar puntero
-        MOVEQ   #3,D0              * ID buffer transmisión B
-        BSR     ESCCAR
-        CMP.L   #-1,D0
-        BEQ     ACTIVA_B          * Buffer interno lleno
-
-        ADDQ.L  #1,D5              * Incrementar contador
-        SUBQ.W  #1,D3              * Decrementar tamaño
-        BNE     LINEA_B
-
-ACTIVA_B:
-        TST.L   D5
-        BEQ     FIN               * No se insertaron datos
-
-        BSET    #4,COPIA_IMR       * Habilitar interrupción Tx B
-        MOVE.B  COPIA_IMR,IMR
-        BRA     FIN
-
-*=========== TRANSMISIÓN LÍNEA A ===========*
-LINEA_A:
-        MOVE.B  (A1)+,D1
-        MOVEQ   #2,D0              * ID buffer transmisión A
-        BSR     ESCCAR
-        CMP.L   #-1,D0
-        BEQ     ACTIVA_A
-
-        ADDQ.L  #1,D5
-        SUBQ.W  #1,D3
-        BNE     LINEA_A
-
-ACTIVA_A:
-        TST.L   D5
-        BEQ     FIN
-
-        BSET    #0,COPIA_IMR       * Habilitar interrupción Tx A
-        MOVE.B  COPIA_IMR,IMR
-
-*----------- Finalización -----------*
-FIN:
-        MOVE.L  D5,D0              * Número de caracteres aceptados
-        BRA     RESTORE
-
-ERROR:
-        MOVEQ   #-1,D0             * Código de error
-
-RESTORE:
-        MOVEM.L (A7)+,D2-D3/D5/A1     * Restaurar registros
-        UNLK    A6
-        RTS
-
-*==============================================
-
+        ****************** FINALIZACIÓN *********************************************************
+FIN:                                                                                            *
+        MOVE.L  D5,D0              * Número de caracteres aceptados                             *
+        BRA     RESTORE                                                                         *
+                                                                                                *
+ERROR:                                                                                          *
+        MOVEQ   #-1,D0             * Código de error                                            *
+                                                                                                *
+RESTORE:                                                                                        *
+        MOVEM.L (A7)+,D2-D3/D5/A1     * Restaurar registros                                     *
+        UNLK    A6                                                                              *
+        RTS                                                                                     *
+**************************** FIN PRINT **********************************************************
 
 *==============================================
 * Programa Principal:
